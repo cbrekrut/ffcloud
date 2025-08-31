@@ -43,3 +43,29 @@ class ProductImportView(APIView):
         except Exception as e:
             return Response({"status": "error", "detail": str(e)},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.filters import SearchFilter, OrderingFilter
+
+from api.models import Store
+from api.serializers.store import StoreSerializer
+
+class StoreViewSet(ModelViewSet):
+    """
+    CRUD:
+    - GET    /api/stores/          (list)
+    - POST   /api/stores/          (create)
+    - GET    /api/stores/{id}/     (retrieve)
+    - PUT    /api/stores/{id}/     (update)
+    - PATCH  /api/stores/{id}/     (partial_update)
+    - DELETE /api/stores/{id}/     (destroy)
+    """
+    queryset = Store.objects.all().order_by("id")
+    serializer_class = StoreSerializer
+    permission_classes = []
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ["name", "client_id"]
+    ordering_fields = ["id", "name", "client_id"]

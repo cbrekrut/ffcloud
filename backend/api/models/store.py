@@ -18,4 +18,4 @@ class Store(models.Model):
         verbose_name = "Магазин"
 
     def __str__(self):
-        return f"{self.name} ({self.get_platform_display()})"
+        return f"{self.name}"

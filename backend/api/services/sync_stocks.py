@@ -1,22 +1,17 @@
 import logging
 import time
 from itertools import islice
-
 import requests
 from django.conf import settings
-
 from api.models.product import Product
 from api.models.store_warehouse import StoreWarehouse
 
-
 logger = logging.getLogger(__name__)
-
 
 def chunked_iterable(iterable, size):
     it = iter(iterable)
     while chunk := list(islice(it, size)):
         yield chunk
-
 
 def sync_ozon_stocks(store, store_stock):
     if not store.api_key or not store.client_id:

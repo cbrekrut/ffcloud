@@ -8,8 +8,7 @@ SECRET_KEY = 'django-insecure-e++y(m11z3k39q-kn(ylvn*t$pzk#)5d*&r7(0xhic3$&n6^6#
 
 DEBUG = True
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost","*"]
-
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "*"]
 
 
 INSTALLED_APPS = [
@@ -20,12 +19,23 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
-    "rest_framework.authtoken",                    
-    "django_filters",                         
-    "drf_spectacular",              
-    "corsheaders",                                 
+    "rest_framework.authtoken",
+    "django_filters",
+    "drf_spectacular",
+    "corsheaders",
     "api",
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'My API',
+    'DESCRIPTION': 'Документация для API',
+    'VERSION': '1.0.0',
+}
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -113,3 +123,6 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+OZON_API = 'https://api-seller.ozon.ru/'

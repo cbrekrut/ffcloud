@@ -1,3 +1,15 @@
+from api.services.sync_stocks import sync_ozon_stocks
+from api.services.sync_warehouses import get_ozon_warehouses
+from api.services.sync_store_products import get_ozon_products
+from api.serializers.store import StoreSerializer
+from api.models import Store
+from rest_framework.decorators import action
+from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.viewsets import ModelViewSet
+from api.services.import_products import import_products_from_excel
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework import status
+from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
@@ -7,23 +19,16 @@ from .serializers.products import ProductSerializer
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticatedOrReadOnly])
+# @permission_classes([IsAuthenticatedOrReadOnly])
 def product_list(request):
     qs = Product.objects.all().order_by("id")
     serializer = ProductSerializer(qs, many=True)
     return Response(serializer.data)
 
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.parsers import MultiPartParser, FormParser
-
-from api.services.import_products import import_products_from_excel
-
-
 class ProductImportView(APIView):
-    parser_classes = [MultiPartParser, FormParser]  # принимает form-data с файлом
+    # принимает form-data с файлом
+    parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, *args, **kwargs):
         """
@@ -45,14 +50,6 @@ class ProductImportView(APIView):
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-
-from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
-from rest_framework.filters import SearchFilter, OrderingFilter
-
-from api.models import Store
-from api.serializers.store import StoreSerializer
-
 class StoreViewSet(ModelViewSet):
     """
     CRUD:
@@ -69,3 +66,24 @@ class StoreViewSet(ModelViewSet):
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ["name", "client_id"]
     ordering_fields = ["id", "name", "client_id"]
+
+    @action(methods=['get'], url_path='sync_products', detail=True)
+    def sync_products(self, request, pk=None):
+        return Response(
+            data=get_ozon_products(self.get_object()),
+            status=status.HTTP_200_OK
+        )
+
+    @action(methods=['get'], url_path='sync_warehouses', detail=True)
+    def sync_warehouses(self, request, pk=None):
+        return Response(
+            data=get_ozon_warehouses(self.get_object()),
+            status=status.HTTP_200_OK
+        )
+
+    @action(methods=['get'], url_path='sync_stocks', detail=True)
+    def sync_stocks(self, request, pk=None):
+        return Response(
+            data=sync_ozon_stocks(self.get_object()),
+            status=status.HTTP_200_OK
+        )

@@ -30,7 +30,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-san
 
 .app { min-height: 100%; display: grid; grid-template-rows: auto 1fr; background: var(--bg); }
 /* Header: всегда на всю ширину и поверх контента */
-.header { position: sticky; top: 0; z-index: 50; width: 100%; backdrop-filter: saturate(1.2) blur(6px); background: linear-gradient(180deg, rgba(17,24,33,.95), rgba(17,24,33,.8)); border-bottom: 1px solid var(--border); }
+.header { position: sticky; top: 0; z-index: 50; width: 100vw; backdrop-filter: saturate(1.2) blur(6px); background: linear-gradient(180deg, rgba(17,24,33,.95), rgba(17,24,33,.8)); border-bottom: 1px solid var(--border); }
 .header-inner { width: 100%; display: flex; align-items: center; gap: 20px; padding: 14px 24px; }
 .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: .3px; }
 .brand .logo { width: 36px; height: 36px; border-radius: 10px; background: radial-gradient(120% 120% at 10% 10%, var(--accent), var(--accent-2)); box-shadow: inset 0 0 0 2px rgba(0,0,0,.2), var(--shadow); }
@@ -280,7 +280,7 @@ function OzonPanel() {
     setCreating(true);
     try {
       const res = await fetch(STORES_URL, {
-        method: "POST",
+        method: "GET",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
@@ -302,7 +302,7 @@ function OzonPanel() {
     setActionState((s) => ({ ...s, [action]: { loading: true, error: null, result: null } }));
     try {
       const url = `${STORES_URL}${activeId}/${action}/`;
-      const res = await fetch(url, { method: "POST" });
+      const res = await fetch(url, { method: "GET" });
       const text = await res.text();
       let data = null;
       try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
@@ -402,10 +402,10 @@ function OzonPanel() {
               <h4>Синхронизация товаров</h4>
               <p className="small">Импорт карточек из OZON (создание/обновление StoreProduct).</p>
               <div className="row" style={{ marginTop: 8 }}>
-                <button className="btn accent" disabled={!activeId || actionState["sync-products"]?.loading} onClick={() => callAction("sync-products")}>{actionState["sync-products"]?.loading ? "Выполняется…" : "Синхронизировать товары"}</button>
+                <button className="btn accent" disabled={!activeId || actionState["sync_products"]?.loading} onClick={() => callAction("sync_products")}>{actionState["sync_products"]?.loading ? "Выполняется…" : "Синхронизировать товары"}</button>
               </div>
-              {actionState["sync-products"]?.error && <p className="small" style={{ color: "#ff9aa2" }}>Ошибка: {actionState["sync-products"].error}</p>}
-              {actionState["sync-products"]?.result && <details style={{ marginTop: 8 }}><summary className="small">Результат</summary><pre className="result">{JSON.stringify(actionState["sync-products"].result, null, 2)}</pre></details>}
+              {actionState["sync_products"]?.error && <p className="small" style={{ color: "#ff9aa2" }}>Ошибка: {actionState["sync_products"].error}</p>}
+              {actionState["sync_products"]?.result && <details style={{ marginTop: 8 }}><summary className="small">Результат</summary><pre className="result">{JSON.stringify(actionState["sync_products"].result, null, 2)}</pre></details>}
             </div>
 
             <div className="section-card">

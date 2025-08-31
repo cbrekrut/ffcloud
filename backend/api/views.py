@@ -14,8 +14,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
-from .models import Product
-from .serializers.products import ProductSerializer
+from api.models import Product
+from api.serializers.products import ProductSerializer
 
 
 @api_view(["GET"])

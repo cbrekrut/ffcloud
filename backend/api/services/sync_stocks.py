@@ -1,3 +1,4 @@
+from api.models.store_product import StoreProduct
 import logging
 import time
 from itertools import islice
@@ -8,24 +9,28 @@ from api.models.store_warehouse import StoreWarehouse
 
 logger = logging.getLogger(__name__)
 
+
 def chunked_iterable(iterable, size):
     it = iter(iterable)
     while chunk := list(islice(it, size)):
         yield chunk
 
-def sync_ozon_stocks(store, store_stock):
+
+def sync_ozon_stocks(store):
     if not store.api_key or not store.client_id:
         logger.info('Не установлен токен Ozon либо список остатков пуст')
         return
     payloads = []
 
-    for warehouse in StoreWarehouse.objects.filter(store=store):
-        for chunk in chunked_iterable(Product.objects.all(), 100):
+    for warehouse in StoreWarehouse.objects.filter(store=store, product__isnull=False):
+        for chunk in chunked_iterable(
+            StoreProduct.objects.filter(store=store), 100
+        ):
             payloads.append(
                 {'stocks':
                     [
-                        {'offer_id': product.sku,
-                         'stock': product.stock,
+                        {'offer_id': product.external_id,
+                         'stock': product.product.stock,
                          'warehouse_id': warehouse.external_id}
                         for product in chunk
                     ]
@@ -35,8 +40,8 @@ def sync_ozon_stocks(store, store_stock):
                 response = requests.post(
                     settings.OZON_API + 'v2/products/stocks',
                     headers={
-                        'Api-Key': store.ozon_token,
-                        'Client-Id': store.ozon_client_id
+                        'Api-Key': store.api_key,
+                        'Client-Id': store.client_id
                     },
                     json=payloads[-1]
                 )

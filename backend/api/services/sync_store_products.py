@@ -28,7 +28,7 @@ def get_ozon_products(store):
     while True:
         payload = {
             'filter': {
-                'visibility': 'VISIBLE'
+                'visibility': 'ALL'
             },
             'limit': limit
         }
@@ -46,25 +46,22 @@ def get_ozon_products(store):
         items = data.get('result', [])
 
         for item in items:
-            if len(item.get('barcodes')) == 0:
-                continue
             name = item.get('name')
-            barcode = item.get('barcodes')[0]
             external_id = item.get('offer_id')
             sku_mp = item.get('sku')
 
             product = Product.objects.filter(sku=external_id).first()
-            if product is None or external_id is None:
-                logger.warning(f'не найдены Sku: {external_id}')
-                continue
+            # if product is None or external_id is None:
+            #     logger.warning(f'не найдены Sku: {external_id}')
+            #     continue
 
             mp_product, _ = StoreProduct.objects.update_or_create(
                 store=store,
-                barcode=barcode,
+                sku_mp=sku_mp,
                 product=product,
                 defaults={'name': name,
                           'external_id': external_id,
-                          'sku_mp': sku_mp}
+                          'product': product}
             )
 
             products.append({

@@ -1,21 +1,21 @@
-from api.services.sync_stocks import sync_ozon_stocks
-from api.services.sync_warehouses import get_ozon_warehouses
-from api.services.sync_store_products import get_ozon_products
+from api.models import Product, Store
+from api.models.store_product import StoreProduct
+from api.serializers.products import ProductSerializer
 from api.serializers.store import StoreSerializer
-from api.models import Store
-from rest_framework.decorators import action
-from rest_framework.filters import SearchFilter, OrderingFilter
-from rest_framework.viewsets import ModelViewSet
+from api.serializers.store_products import StoreProductSerializer
+from api.services.create_product_card import create_ozon_product_card
 from api.services.import_products import import_products_from_excel
-from rest_framework.parsers import MultiPartParser, FormParser
+from api.services.sync_stocks import sync_ozon_stocks
+from api.services.sync_store_products import get_ozon_products
+from api.services.sync_warehouses import get_ozon_warehouses
 from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
-
-from api.models import Product
-from api.serializers.products import ProductSerializer
+from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
 
 
 @api_view(["GET"])
@@ -85,5 +85,22 @@ class StoreViewSet(ModelViewSet):
     def sync_stocks(self, request, pk=None):
         return Response(
             data=sync_ozon_stocks(self.get_object()),
+            status=status.HTTP_200_OK
+        )
+
+    @action(methods=['get'], url_path='create_product_card', detail=True)
+    def create_product_card(self, request, pk=None):
+        return Response(
+            data=create_ozon_product_card(self.get_object()),
+            status=status.HTTP_200_OK
+        )
+
+    @action(methods=['get'], url_path='products', detail=True)
+    def products(self, request, pk=None):
+        return Response(
+            data=StoreProductSerializer(StoreProduct.objects.filter(
+                store=self.get_object()).select_related('product'),
+                many=True
+            ).data,
             status=status.HTTP_200_OK
         )

@@ -3,6 +3,7 @@
 //   GET  /api/products/                -> [{ id, name, sku, stock }]
 //   GET  /api/stores/                  -> [{ id, name, client_id }]
 //   POST /api/stores/                  -> { id, name, client_id }
+//   GET  /api/stores/:id/products/     -> store products + mapping
 //   POST /api/stores/:id/sync-products/
 //   POST /api/stores/:id/sync-warehouses/
 //   POST /api/stores/:id/export-stocks/
@@ -47,7 +48,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-san
 .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px; border-bottom: 1px solid var(--border); }
 .panel-title { font-size: 18px; font-weight: 700; letter-spacing: .3px; }
 .panel-actions { display: flex; gap: 10px; align-items: center; }
-.btn { appearance: none; border: 1px solid var(--border); background: #121a24; color: var(--text); border-radius: 10px; padding: 10px 12px; cursor: pointer; font-weight: 600; }
+.btn { appearance: none; border: 1px solid var(--border); background: #121a24; color: #fff; border-radius: 10px; padding: 10px 12px; cursor: pointer; font-weight: 600; }
 .btn:hover { filter: brightness(1.08); }
 .btn.accent { background: var(--accent); color: #222; border-color: #0000; }
 .btn.ghost { background: transparent; }
@@ -59,7 +60,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-san
 .sidebar h4 { margin: 0 0 10px; color: var(--muted); text-transform: uppercase; font-size: 12px; letter-spacing: .8px; }
 .field { display: grid; gap: 8px; margin-bottom: 14px; }
 .label { font-size: 12px; color: var(--muted); letter-spacing: .3px; }
-.input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); background: #0c1219; color: var(--text); border-radius: 10px; outline: none; box-shadow: inset 0 2px 6px rgba(0,0,0,.25); }
+.input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); background: #0c1219; color: #e7eef5; border-radius: 10px; outline: none; box-shadow: inset 0 2px 6px rgba(0,0,0,.25); }
 .input::placeholder { color: #6d8296; }
 .meta { font-size: 12px; color: var(--muted); }
 
@@ -93,6 +94,16 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-san
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .small { font-size: 12px; color: var(--muted); }
 pre.result { max-height: 220px; overflow: auto; background: #0c1219; border: 1px solid var(--border); border-radius: 10px; padding: 10px; }
+
+/* Store products list */
+.sp-controls { display: flex; gap: 10px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
+.sp-wrap { max-height: 50vh; overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
+.sp-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.sp-table thead th { position: sticky; top: 0; background: #0f1620; color: #b7c7d8; padding: 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border); }
+.sp-table tbody td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; font-weight: 700; font-size: 12px; }
+.status.linked { background: #16331f; color: #9be1af; border: 1px solid #274e31; }
+.status.unlinked { background: #341616; color: #ff9aa2; border: 1px solid #5a2222; }
 `;
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
@@ -254,6 +265,11 @@ function OzonPanel() {
 
   const [actionState, setActionState] = useState({}); // { [action]: { loading, error, result } }
 
+  // store products
+  const [sp, setSp] = useState({ loading: false, error: null, items: [] });
+  const [spQuery, setSpQuery] = useState("");
+  const [spOnly, setSpOnly] = useState("all"); // all | linked | unlinked
+
   const fetchStores = async () => {
     setLoading(true); setError(null);
     try {
@@ -269,7 +285,21 @@ function OzonPanel() {
     }
   };
 
+  const fetchStoreProducts = async (storeId) => {
+    if (!storeId) return;
+    setSp((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const res = await fetch(`${STORES_URL}${storeId}/products/`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      setSp({ loading: false, error: null, items: Array.isArray(json) ? json : [] });
+    } catch (e) {
+      setSp({ loading: false, error: e.message || String(e), items: [] });
+    }
+  };
+
   useEffect(() => { fetchStores(); }, []);
+  useEffect(() => { if (activeId) fetchStoreProducts(activeId); }, [activeId]);
 
   const createStore = async (e) => {
     e?.preventDefault?.();
@@ -308,10 +338,28 @@ function OzonPanel() {
       try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
       if (!res.ok) throw new Error(data?.detail || `HTTP ${res.status}`);
       setActionState((s) => ({ ...s, [action]: { loading: false, error: null, result: data } }));
+      if (action === "sync_products") fetchStoreProducts(activeId); // обновить список после синка
+      if (action === "sync_products") fetchStoreProducts(activeId);
     } catch (e) {
       setActionState((s) => ({ ...s, [action]: { loading: false, error: e.message || String(e), result: null } }));
     }
   };
+
+  const spFiltered = useMemo(() => {
+    const q = spQuery.trim().toLowerCase();
+    let arr = Array.isArray(sp.items) ? sp.items : [];
+    if (spOnly !== "all") {
+      const wantLinked = spOnly === "linked";
+      arr = arr.filter((it) => Boolean(it.product) === wantLinked);
+    }
+    if (q) {
+      arr = arr.filter((it) => {
+        const a = [it.name, it.sku_mp, it.external_id, it?.product?.name, it?.product?.sku];
+        return a.some((x) => String(x || "").toLowerCase().includes(q));
+      });
+    }
+    return arr;
+  }, [sp.items, spQuery, spOnly]);
 
   return (
     <div className="panel">
@@ -400,32 +448,93 @@ function OzonPanel() {
           <div className="grid">
             <div className="section-card">
               <h4>Синхронизация товаров</h4>
-              <p className="small">Импорт карточек из OZON (создание/обновление StoreProduct).</p>
+              <p className="small">Импорт карточек из OZON (создание/обновление привязок к товарам системы).</p>
               <div className="row" style={{ marginTop: 8 }}>
                 <button className="btn accent" disabled={!activeId || actionState["sync_products"]?.loading} onClick={() => callAction("sync_products")}>{actionState["sync_products"]?.loading ? "Выполняется…" : "Синхронизировать товары"}</button>
+                <button className="btn" onClick={() => fetchStoreProducts(activeId)} disabled={!activeId || sp.loading}>Обновить список</button>
               </div>
               {actionState["sync_products"]?.error && <p className="small" style={{ color: "#ff9aa2" }}>Ошибка: {actionState["sync_products"].error}</p>}
               {actionState["sync_products"]?.result && <details style={{ marginTop: 8 }}><summary className="small">Результат</summary><pre className="result">{JSON.stringify(actionState["sync_products"].result, null, 2)}</pre></details>}
+
+              <div className="sp-controls">
+                <input className="input" placeholder="Поиск: имя, SKU OZON, external_id, товар системы" value={spQuery} onChange={(e) => setSpQuery(e.target.value)} style={{ maxWidth: 360 }} />
+                <select className="input" style={{ width: 200 }} value={spOnly} onChange={(e) => setSpOnly(e.target.value)}>
+                  <option value="all">Показывать: все</option>
+                  <option value="linked">Только связанные</option>
+                  <option value="unlinked">Только несвязанные</option>
+                </select>
+                <span className="small">Всего: {sp.items.length}, показано: {spFiltered.length}</span>
+              </div>
+
+              <div className="sp-wrap">
+                <table className="sp-table">
+                  <thead>
+                    <tr>
+                      <th>OZON SKU</th>
+                      <th>Название (OZON)</th>
+                      <th>External ID</th>
+                      <th>Товар системы (если связан)</th>
+                      <th>Статус</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sp.loading && (
+                      [...Array(8)].map((_, i) => (
+                        <tr key={i}><td colSpan={5}><div className="shimmer" style={{ height: 32, borderRadius: 8 }} /></td></tr>
+                      ))
+                    )}
+                    {!sp.loading && sp.error && (
+                      <tr><td colSpan={5}><span className="badge err">Ошибка</span> {String(sp.error)}</td></tr>
+                    )}
+                    {!sp.loading && !sp.error && spFiltered.length === 0 && (
+                      <tr><td colSpan={5} className="small">Пусто</td></tr>
+                    )}
+                    {!sp.loading && !sp.error && spFiltered.map((it) => {
+                      const linked = Boolean(it.product);
+                      return (
+                        <tr key={it.id}>
+                          <td><code>{it.sku_mp || "—"}</code></td>
+                          <td>{it.name || "—"}</td>
+                          <td><code>{it.external_id || "—"}</code></td>
+                          <td>
+                            {linked ? (
+                              <div>
+                                <div>{it.product.name}</div>
+                                <div className="small"><code>{it.product.sku}</code> · остаток: {typeof it.product.stock === 'number' ? it.product.stock : '—'}</div>
+                              </div>
+                            ) : (
+                              <span className="small" style={{ color: '#9aa8b4' }}>— не связан —</span>
+                            )}
+                          </td>
+                          <td>
+                            <span className={`status ${linked ? 'linked' : 'unlinked'}`}>{linked ? 'Связан' : 'Нет связи'}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div className="section-card">
               <h4>Синхронизация складов</h4>
               <p className="small">Загрузка складов аккаунта OZON (FBS/FBO).</p>
               <div className="row" style={{ marginTop: 8 }}>
-                <button className="btn accent" disabled={!activeId || actionState["sync-warehouses"]?.loading} onClick={() => callAction("sync-warehouses")}>{actionState["sync-warehouses"]?.loading ? "Выполняется…" : "Синхронизировать склады"}</button>
+                <button className="btn accent" disabled={!activeId || actionState["sync_warehouses"]?.loading} onClick={() => callAction("sync_warehouses")}>{actionState["sync_warehouses"]?.loading ? "Выполняется…" : "Синхронизировать склады"}</button>
               </div>
-              {actionState["sync-warehouses"]?.error && <p className="small" style={{ color: "#ff9aa2" }}>Ошибка: {actionState["sync-warehouses"].error}</p>}
-              {actionState["sync-warehouses"]?.result && <details style={{ marginTop: 8 }}><summary className="small">Результат</summary><pre className="result">{JSON.stringify(actionState["sync-warehouses"].result, null, 2)}</pre></details>}
+              {actionState["sync_warehouses"]?.error && <p className="small" style={{ color: "#ff9aa2" }}>Ошибка: {actionState["sync_warehouses"].error}</p>}
+              {actionState["sync_warehouses"]?.result && <details style={{ marginTop: 8 }}><summary className="small">Результат</summary><pre className="result">{JSON.stringify(actionState["sync_warehouses"].result, null, 2)}</pre></details>}
             </div>
 
             <div className="section-card">
               <h4>Выгрузка остатков</h4>
               <p className="small">Отправить рассчитанные остатки на OZON.</p>
               <div className="row" style={{ marginTop: 8 }}>
-                <button className="btn accent" disabled={!activeId || actionState["export-stocks"]?.loading} onClick={() => callAction("export-stocks")}>{actionState["export-stocks"]?.loading ? "Выполняется…" : "Выгрузить остатки"}</button>
+                <button className="btn accent" disabled={!activeId || actionState["sync_stocks"]?.loading} onClick={() => callAction("sync_stocks")}>{actionState["sync_stocks"]?.loading ? "Выполняется…" : "Выгрузить остатки"}</button>
               </div>
-              {actionState["export-stocks"]?.error && <p className="small" style={{ color: "#ff9aa2" }}>Ошибка: {actionState["export-stocks"].error}</p>}
-              {actionState["export-stocks"]?.result && <details style={{ marginTop: 8 }}><summary className="small">Результат</summary><pre className="result">{JSON.stringify(actionState["export-stocks"].result, null, 2)}</pre></details>}
+              {actionState["sync_stocks"]?.error && <p className="small" style={{ color: "#ff9aa2" }}>Ошибка: {actionState["sync_stocks"].error}</p>}
+              {actionState["sync_stocks"]?.result && <details style={{ marginTop: 8 }}><summary className="small">Результат</summary><pre className="result">{JSON.stringify(actionState["sync_stocks"].result, null, 2)}</pre></details>}
             </div>
           </div>
         </div>

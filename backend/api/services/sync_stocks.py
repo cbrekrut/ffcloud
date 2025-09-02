@@ -22,9 +22,9 @@ def sync_ozon_stocks(store):
         return
     payloads = []
 
-    for warehouse in StoreWarehouse.objects.filter(store=store, product__isnull=False):
+    for warehouse in StoreWarehouse.objects.filter(store=store):
         for chunk in chunked_iterable(
-            StoreProduct.objects.filter(store=store), 100
+            StoreProduct.objects.filter(store=store, product__isnull=False), 100
         ):
             payloads.append(
                 {'stocks':
